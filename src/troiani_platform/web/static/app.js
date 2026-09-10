@@ -15,12 +15,26 @@ function esc(value) {
 
 function fmtDur(seconds) {
   const total = Math.max(0, Math.floor(Number(seconds) || 0));
-  const h = Math.floor(total / 3600);
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
+  if (d >= 365) return `${(total / (365 * 86400)).toFixed(1)}y`;
+  if (d) return `${d}d ${String(h).padStart(2, "0")}h`;
   if (h) return `${h}h ${String(m).padStart(2, "0")}m`;
   if (m) return `${m}m ${String(s).padStart(2, "0")}s`;
   return `${s}s`;
+}
+
+const TOKENS_100B = 1e11;
+
+function fmtEta100B(ingested, tokensPerSec, label) {
+  if (label) return label;
+  const rate = Number(tokensPerSec);
+  const have = Number(ingested) || 0;
+  if (!Number.isFinite(rate) || rate <= 0) return "—";
+  if (have >= TOKENS_100B) return "reached";
+  return fmtDur((TOKENS_100B - have) / rate);
 }
 
 function fmtGb(n) {
@@ -194,6 +208,7 @@ function renderJobs(status) {
       if (state !== "CANCELLED") actions += `<button class="danger" onclick="act('jobs/${esc(id)}/cancel', true, 'Cancel ${esc(id)}?')">Cancel</button>`;
     }
     const tps = j.tokens_per_sec != null ? `${fmtTokens(j.tokens_per_sec)}/s` : "—";
+    const eta = fmtEta100B(j.tokens_ingested, j.tokens_per_sec, j.eta_100b);
     return `<tr class="clickable" onclick="selectJob('${esc(id)}')">
       <td class="mono">${esc(id)}</td>
       <td>${pill(state, "occ-" + String(state).toLowerCase())}</td>
@@ -203,22 +218,31 @@ function renderJobs(status) {
       <td>${esc(j.last_step)}</td>
       <td>${j.last_loss == null ? "—" : Number(j.last_loss).toFixed(4)}${j.val_loss == null ? "" : ` <span class="sub">val ${Number(j.val_loss).toFixed(4)}</span>`}</td>
       <td>${fmtTokens(j.tokens_ingested)} <span class="sub">${esc(tps)}</span></td>
+      <td class="mono">${esc(eta)}</td>
       <td class="mono">${esc(j.last_checkpoint_id || "—")}</td>
       <td>${actions || "—"}</td>
     </tr>`;
   }).join("");
-  $("job-body").innerHTML = rows || `<tr><td colspan="10" class="note">No jobs yet.</td></tr>`;
+  $("job-body").innerHTML = rows || `<tr><td colspan="11" class="note">No jobs yet.</td></tr>`;
+}
+
+async function refreshJobLog(id) {
+  if (!id) return;
+  const res = await fetch("/v1/jobs/" + encodeURIComponent(id) + "/log");
+  if (!res.ok) {
+    $("job-log").textContent = `log unavailable (${res.status})`;
+    return;
+  }
+  const data = await res.json();
+  const body = (data.text || "").trim() ? data.text : "(empty — waiting for worker stdout)";
+  $("job-log").textContent = `${body}\n\n— ${data.source || "none"}${data.bytes != null ? ` · ${data.bytes} B` : ""}`;
 }
 
 async function selectJob(id) {
   selectedJob = id;
   const job = (lastStatus.jobs || []).find((j) => j.id === id);
   $("job-detail").textContent = job ? JSON.stringify(job, null, 2) : id;
-  const res = await fetch("/v1/jobs/" + encodeURIComponent(id) + "/log");
-  if (res.ok) {
-    const data = await res.json();
-    $("job-log").textContent = (data.text || "(empty)") + (data.source ? `\n\n— ${data.source}` : "");
-  }
+  await refreshJobLog(id);
 }
 
 function datasetLabel(run) {
@@ -236,6 +260,7 @@ function renderRuns(status) {
     <td>${esc(r.status)}</td>
     <td>${fmtDur(r.runtime_s)}</td>
     <td>${fmtTokens(r.tokens_ingested)}</td>
+    <td class="mono">${esc(fmtEta100B(r.tokens_ingested, r.tokens_per_sec, r.eta_100b))}</td>
     <td>${(r.metrics && r.metrics.val_loss != null) ? Number(r.metrics.val_loss).toFixed(4) : "—"}</td>
     <td>${r.tokens_per_sec == null ? "—" : fmtTokens(r.tokens_per_sec) + "/s"}</td>
     <td>${esc((r.hardware || {}).node || "—")}</td>
@@ -243,7 +268,7 @@ function renderRuns(status) {
     <td class="mono">${esc(r.git_sha || "—").slice(0, 8)}</td>
     <td><button onclick="showRun('${esc(r.id)}')">Inspect</button></td>
   </tr>`).join("");
-  $("run-body").innerHTML = rows || `<tr><td colspan="11" class="note">No runs yet.</td></tr>`;
+  $("run-body").innerHTML = rows || `<tr><td colspan="12" class="note">No runs yet.</td></tr>`;
 }
 
 async function showRun(id) {
@@ -507,46 +532,213 @@ function renderLaunchNodes(status) {
   if ([...select.options].some((o) => o.value === current)) select.value = current;
 }
 
+const GPU_PALETTE = ["#9a3412", "#1d4ed8", "#3f6212", "#a16207", "#6d28d9", "#0f766e"];
+
+function cssVar(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function historyGpuRef(key, point) {
+  if (point && point.ref) return String(point.ref);
+  const match = String(key).match(/^([^:]+):(\d+)$/);
+  if (match) return `${match[1].toLowerCase()}/gpu${Number(match[2])}`;
+  return String(key);
+}
+
+function sampleMetric(point, metric) {
+  if (!point || typeof point !== "object") return null;
+  if (metric === "sm") {
+    const value = point.sm != null ? point.sm : point.util;
+    return value == null ? null : Number(value);
+  }
+  if (point.vram != null) return Number(point.vram);
+  return null;
+}
+
+function parseSampleTs(ts) {
+  if (!ts) return null;
+  const value = Date.parse(ts);
+  return Number.isFinite(value) ? value : null;
+}
+
+function fmtClock(ms) {
+  const date = new Date(ms);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function collectChartSeries(hist) {
+  const keys = [];
+  const seen = new Set();
+  hist.forEach((sample) => {
+    Object.keys(sample).forEach((key) => {
+      if (key === "ts" || seen.has(key)) return;
+      if (!sample[key] || typeof sample[key] !== "object") return;
+      seen.add(key);
+      keys.push(key);
+    });
+  });
+  return keys.map((key, idx) => {
+    const first = hist.find((sample) => sample[key] && typeof sample[key] === "object");
+    return {
+      key,
+      ref: historyGpuRef(key, first && first[key]),
+      color: GPU_PALETTE[idx % GPU_PALETTE.length],
+    };
+  });
+}
+
+function renderLede(status) {
+  const el = document.querySelector(".lede");
+  if (!el) return;
+  const nodes = status.nodes || [];
+  const gpus = status.gpus || [];
+  const models = [...new Set(gpus.map((g) => {
+    const raw = String(g.model || g.name || "");
+    if (/a100/i.test(raw)) return "A100";
+    return raw.replace(/^NVIDIA\s+/i, "").split(/[-\s]/)[0];
+  }).filter(Boolean))];
+  const kind = models.length === 1 ? models[0] : (models.includes("A100") ? "A100" : (models.join(" · ") || "A100"));
+  const count = nodes.length || [...new Set(gpus.map((g) => g.node).filter(Boolean))].length || 2;
+  el.textContent = `${count} nodes · ${kind}`;
+}
+
 function drawChart(status) {
   const canvas = $("chart");
+  const empty = $("chart-empty");
+  const legend = $("chart-legend");
+  const block = $("chart-block");
   if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, w, h);
   const hist = (status.metrics && status.metrics.history) || [];
-  if (hist.length < 2) {
-    ctx.fillStyle = "#6a655e";
-    ctx.font = "12px IBM Plex Mono";
-    ctx.fillText("SM (solid) and VRAM (dashed) appear after a few heartbeats.", 12, h / 2);
-    return;
+  const series = collectChartSeries(hist);
+  const times = hist.map((sample) => parseSampleTs(sample.ts));
+  const hasTime = times.some((value) => value != null);
+  const enough = hist.length >= 2 && series.length > 0;
+
+  if (empty) {
+    empty.hidden = enough;
+    if (!enough) {
+      empty.textContent = hist.length === 0
+        ? "No utilization samples yet. SM and VRAM series appear after the first worker heartbeats."
+        : "Only one sample so far. Waiting for another heartbeat before drawing SM and VRAM.";
+    }
   }
-  const keys = Object.keys(hist[0]).filter((k) => k !== "ts");
-  const colors = ["#9a3412", "#1d4ed8", "#3f6212", "#a16207", "#7c3aed", "#0f766e"];
-  const draw = (metric, dashed) => {
-    keys.forEach((key, idx) => {
+  if (block) block.hidden = !enough;
+  if (legend) legend.innerHTML = "";
+  if (!enough) return;
+
+  legend.innerHTML = series.map((item) => `
+    <li>
+      <span class="gpu">${esc(item.ref)}</span>
+      <span class="swatch" style="color:${item.color}"></span>
+      <span>SM</span>
+      <span class="swatch dash" style="color:${item.color}"></span>
+      <span>VRAM</span>
+    </li>
+  `).join("");
+
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(canvas.clientWidth || 0, 320);
+  const h = Math.max(canvas.clientHeight || 0, 280);
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const ink = cssVar("--ink", "#161513");
+  const muted = cssVar("--muted", "#6a655e");
+  const grid = cssVar("--line", "#d8d2c6");
+  const pad = { l: 52, r: 16, t: 16, b: 44 };
+  const plotW = Math.max(40, w - pad.l - pad.r);
+  const plotH = Math.max(80, h - pad.t - pad.b);
+  const tVals = times.map((value, idx) => (value != null ? value : idx));
+  let tMin = Math.min(...tVals);
+  let tMax = Math.max(...tVals);
+  if (tMax === tMin) tMax = tMin + 1000;
+  const xAtTime = (t) => pad.l + ((t - tMin) / (tMax - tMin)) * plotW;
+  const yAt = (pct) => pad.t + (1 - Math.max(0, Math.min(100, Number(pct) || 0)) / 100) * plotH;
+
+  ctx.font = "11px IBM Plex Mono, ui-monospace, monospace";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  [0, 25, 50, 75, 100].forEach((tick) => {
+    const y = yAt(tick);
+    ctx.strokeStyle = grid;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(tick === 0 || tick === 100 ? [] : [2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(pad.l + plotW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = muted;
+    ctx.fillText(String(tick), pad.l - 8, y);
+  });
+
+  ctx.save();
+  ctx.translate(14, pad.t + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.fillStyle = muted;
+  ctx.font = "12px IBM Plex Sans, sans-serif";
+  ctx.fillText("%", 0, 0);
+  ctx.restore();
+
+  const tickCount = 5;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = "11px IBM Plex Mono, ui-monospace, monospace";
+  for (let i = 0; i < tickCount; i++) {
+    const t = tMin + (i / Math.max(tickCount - 1, 1)) * (tMax - tMin);
+    const x = xAtTime(t);
+    ctx.strokeStyle = grid;
+    ctx.beginPath();
+    ctx.moveTo(x, pad.t + plotH);
+    ctx.lineTo(x, pad.t + plotH + 5);
+    ctx.stroke();
+    ctx.fillStyle = muted;
+    ctx.fillText(hasTime ? fmtClock(t) : String(i), x, pad.t + plotH + 8);
+  }
+  ctx.font = "12px IBM Plex Sans, sans-serif";
+  ctx.fillText("time", pad.l + plotW / 2, h - 14);
+
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 1.25;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + plotH);
+  ctx.lineTo(pad.l + plotW, pad.t + plotH);
+  ctx.stroke();
+
+  const strokeMetric = (metric, dashed) => {
+    series.forEach((item) => {
       ctx.beginPath();
-      ctx.strokeStyle = colors[idx % colors.length];
-      ctx.setLineDash(dashed ? [4, 3] : []);
-      hist.forEach((sample, i) => {
-        const point = sample[key] || {};
-        const value = metric === "sm"
-          ? Number(point.sm != null ? point.sm : point.util || 0)
-          : Number(point.vram != null ? point.vram : (100 * (point.mem || 0) / 80));
-        const x = (i / (hist.length - 1)) * (w - 8) + 4;
-        const y = h - 6 - (Math.max(0, Math.min(100, value)) / 100) * (h - 16);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      ctx.strokeStyle = item.color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(dashed ? [6, 4] : []);
+      let drawing = false;
+      hist.forEach((sample, idx) => {
+        const value = sampleMetric(sample[item.key], metric);
+        if (value == null || !Number.isFinite(value)) {
+          drawing = false;
+          return;
+        }
+        const x = xAtTime(tVals[idx]);
+        const y = yAt(value);
+        if (!drawing) {
+          ctx.moveTo(x, y);
+          drawing = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
       });
       ctx.stroke();
     });
   };
-  draw("sm", false);
-  draw("vram", true);
+  strokeMetric("sm", false);
+  strokeMetric("vram", true);
   ctx.setLineDash([]);
 }
 
@@ -574,6 +766,7 @@ async function refresh() {
   const status = await res.json();
   lastStatus = status;
   $("clock").textContent = status.now || "";
+  renderLede(status);
   renderCards(status);
   renderGpus(status);
   renderJobs(status);
@@ -591,6 +784,7 @@ async function refresh() {
   if (selectedJob) {
     const job = (status.jobs || []).find((j) => j.id === selectedJob);
     if (job) $("job-detail").textContent = JSON.stringify(job, null, 2);
+    refreshJobLog(selectedJob);
   }
 }
 

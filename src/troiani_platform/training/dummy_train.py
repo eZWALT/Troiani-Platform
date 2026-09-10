@@ -159,6 +159,10 @@ def main() -> None:
                 "eval_ok": bool(result.get("ok")),
             }
             _post(endpoint, "/v1/internal/metrics", eval_payload)
+        print(
+            f"step={step} loss={loss:.4f} tokens={tokens_ingested} tok/s={tokens_per_sec:.0f}",
+            flush=True,
+        )
         if anomalies:
             _save(
                 step,

@@ -25,11 +25,13 @@ class ProcessExecutor:
         command = list(job.spec.command)
         if command and command[0] in {"python", "python3"}:
             command[0] = sys.executable
+        if command and Path(str(command[0])).name.startswith("python") and "-u" not in command:
+            command = [command[0], "-u", *command[1:]]
         log_dir = Path(env["CHECKPOINT_DIR"]).parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / f"{job.id}.log"
-        handle = log_path.open("ab")
-        handle.write(f"\n# start {' '.join(command)}\n".encode())
+        handle = log_path.open("ab", buffering=0)
+        handle.write(f"# start {' '.join(command)}\n".encode())
         handle.flush()
         proc = subprocess.Popen(
             command,

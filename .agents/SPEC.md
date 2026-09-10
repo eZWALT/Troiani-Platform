@@ -27,6 +27,7 @@ Hardware: Atlas 2× A100 40GB (GPU0 often `gkoutr`). Uranus 4× A100 80GB (GPU2�
 - [x] M14 Named policy rules + STOP ALL + aggressiveness + live policy PUT
 - [x] M15 Watchdog + stale worker + fault injection hooks
 - [ ] M16 Multi-day real Troiani model (not dummy) — later, idle GPUs only
+- Token budget for a 1B is in `.agents/SCALING.md` (20× is compute-optimal, not good enough). Throughput probe is **not** M16: `.agents/THROUGHPUT.md`.
 
 ## Extra ROI the user added
 
@@ -47,6 +48,7 @@ Hardware: Atlas 2× A100 40GB (GPU0 often `gkoutr`). Uranus 4× A100 80GB (GPU2�
 - [x] Real 1-GPU / 2-GPU / 2-node smokes on idle cards (do every deploy)
 - [ ] Intent-score decay further if still noisy
 - [ ] Grafana/Prometheus — skip unless MLflow+TB fail
+- [x] Token-budget guidance (SCALING.md) + 1-GPU throughput estimator (THROUGHPUT.md). Not M16.
 
 ## Hard rules
 

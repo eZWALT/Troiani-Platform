@@ -1,0 +1,26 @@
+name: bench-throughput-80
+gpus: 1
+min_gpu_memory_gb: 80
+preferred_gpu_type: A100
+preferred_node: uranus
+priority: opportunistic
+preemptible: true
+checkpoint_interval: 600
+max_runtime: 180
+experiment: throughput-bench
+# 80GB-only so placement will not land on Atlas 40GB cards.
+command:
+  - python
+  - -m
+  - troiani_platform.training.throughput
+  - --params
+  - "1B"
+  - --batch
+  - "4"
+  - --seq
+  - "2048"
+  - --steps
+  - "30"
+dataset:
+  name: throughput-probe
+  version: "1"

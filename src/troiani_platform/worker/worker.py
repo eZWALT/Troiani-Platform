@@ -42,6 +42,7 @@ class Worker:
         self._reported_checkpoints: dict[str, str] = {}
         self._log_offsets: dict[str, int] = {}
         self._pending_logs: dict[str, dict[str, Any]] = {}
+        self._log_paths: dict[str, Path] = {}
         self._stop = False
 
     def _headers(self) -> dict[str, str]:
@@ -87,10 +88,16 @@ class Worker:
         return [s.to_dict() for s in signals]
 
     def _read_log_delta(self, job_id: str, path: Any) -> dict[str, Any] | None:
-        if not path or not Path(path).exists():
+        if not path:
             return None
-        data = Path(path).read_bytes()
-        offset = self._log_offsets.get(job_id, 0)
+        log_path = Path(path)
+        if not log_path.exists():
+            return None
+        try:
+            data = log_path.read_bytes()
+        except OSError:
+            return None
+        offset = int(self._log_offsets.get(job_id, 0))
         if offset > len(data):
             offset = 0
         chunk = data[offset : offset + 32768]
@@ -104,17 +111,32 @@ class Worker:
 
     def _collect_logs(self) -> dict[str, dict[str, Any]]:
         logs: dict[str, dict[str, Any]] = {}
+        paths = dict(self._log_paths)
         for job_id, proc in self.procs.items():
-            item = self._read_log_delta(job_id, getattr(proc, "_troiani_log_path", None))
+            raw = getattr(proc, "_troiani_log_path", None)
+            if raw:
+                paths[job_id] = Path(raw)
+                self._log_paths[job_id] = Path(raw)
+        for job_id, path in paths.items():
+            item = self._read_log_delta(job_id, path)
             if item:
                 logs[job_id] = item
-        logs.update(self._pending_logs)
+        for job_id, item in self._pending_logs.items():
+            logs.setdefault(job_id, item)
         return logs
 
     def _commit_logs(self, logs: dict[str, dict[str, Any]]) -> None:
         for job_id, item in logs.items():
             self._log_offsets[job_id] = int(item.get("offset") or 0) + int(item.get("size") or 0)
             self._pending_logs.pop(job_id, None)
+            path = self._log_paths.get(job_id)
+            if path is None or job_id in self.procs:
+                continue
+            try:
+                if self._log_offsets[job_id] >= Path(path).stat().st_size:
+                    self._log_paths.pop(job_id, None)
+            except OSError:
+                self._log_paths.pop(job_id, None)
 
     def heartbeat(self) -> dict[str, Any]:
         logs = self._collect_logs()
@@ -181,6 +203,9 @@ class Worker:
         )
         self.procs[job.id] = proc
         self._job_runs[job.id] = run.id
+        log_path = getattr(proc, "_troiani_log_path", None)
+        if log_path:
+            self._log_paths[job.id] = Path(log_path)
         log.info("started job", extra={"job_id": job.id, "run_id": run.id, "worker_id": self.worker_id})
 
     def _report_latest_checkpoint(self, job_id: str, run_id: str | None = None) -> bool:
@@ -218,6 +243,7 @@ class Worker:
                     pass
             output = ""
             if log_path and Path(log_path).exists():
+                self._log_paths[job_id] = Path(log_path)
                 output = Path(log_path).read_text(errors="replace")[-4000:]
                 leftover = self._read_log_delta(job_id, log_path)
                 if leftover:

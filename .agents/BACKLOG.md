@@ -46,6 +46,15 @@ Priority: P0 now, P1 soon, P2 later. Agents: grab a P0/P1, mark it in IMPROVEMEN
 - [x] Aggressiveness low/mid/extreme mapped to memory_busy_gb / cooldown / caps
 - [x] SM vs VRAM honesty on cards, table, chart
 
+## P1 — throughput bench matrix (not M16)
+
+- [x] Fit estimator + unit tests (2B×batch16 fails 40GB; 350M×batch1 fits 40 and 80)
+- [x] User token-budget guidance in `.agents/SCALING.md` + MEMORY pointer
+- [x] Live tokens/s on idle Atlas gpu1 (40GB) and Uranus gpu0 (80GB): 350M / 1B / 2B×1; 350M×16 OOM on 40GB (no fake tok/s)
+- [x] Table in `.agents/THROUGHPUT.md`
+- [ ] Leftover cells: Uranus 777M, 1B×16 / 2B×8–16 on 80GB (stopped when csp appeared on Uranus gpu0)
+- M16 multi-day Troiani 1B pretrain is **still later**
+
 ## P1 — ingest / infra
 
 - [x] SkyPilot-shaped YAML + script entrypoint (`/v1/jobs/from-yaml`)

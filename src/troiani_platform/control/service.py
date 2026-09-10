@@ -607,6 +607,8 @@ class PlatformService:
             return self._sync_job_checkpoint(job)
         code = int(payload.get("exit_code") if payload.get("exit_code") is not None else 1)
         tail = str(payload.get("output_tail") or job.message or "")
+        if tail:
+            self.ingest_job_log(job.id, tail, job.assigned_node or "worker")
         if job.run_id:
             done = self.config.paths.checkpoints / job.run_id / "DONE"
             if done.exists():
@@ -954,26 +956,35 @@ class PlatformService:
 
     def ingest_job_log(self, job_id: str, raw: Any, node: str) -> dict[str, Any]:
         blob = self.store.get_kv(f"log_tail:{job_id}", {}) or {}
+        if not isinstance(blob, dict):
+            blob = {}
         prev_end = int(blob.get("end") or 0)
         text = str(blob.get("text") or "")
         if isinstance(raw, str):
             chunk = raw
+            if not chunk:
+                return blob
             size = len(chunk.encode("utf-8", errors="replace"))
-            if not text:
+            if chunk in text:
+                return blob
+            if text and text in chunk:
                 text = chunk[-self.LOG_CAP :]
-            elif chunk not in text:
+                end = max(prev_end, size)
+            else:
                 text = (text + chunk)[-self.LOG_CAP :]
-            end = prev_end + size
+                end = prev_end + size
         else:
             payload = raw or {}
             chunk = str(payload.get("chunk") or "")
+            if not chunk:
+                return blob
             offset = int(payload.get("offset") or 0)
             size = int(payload.get("size") or len(chunk.encode("utf-8", errors="replace")))
-            if offset == 0:
+            if offset < prev_end:
+                return blob
+            if offset == 0 and prev_end == 0:
                 text = chunk[-self.LOG_CAP :]
                 end = size
-            elif offset < prev_end:
-                return blob if isinstance(blob, dict) else {}
             else:
                 text = (text + chunk)[-self.LOG_CAP :]
                 end = offset + size
@@ -984,15 +995,19 @@ class PlatformService:
     def get_job_log(self, job_id: str) -> dict[str, Any]:
         self.store.get_job(job_id)
         blob = self.store.get_kv(f"log_tail:{job_id}", {}) or {}
+        if not isinstance(blob, dict):
+            blob = {}
         text = str(blob.get("text") or "")
         source = str(blob.get("node") or "")
+        end = blob.get("end")
         local = self.config.paths.logs / f"{job_id}.log"
         if local.is_file():
             local_text = local.read_text(errors="replace")[-self.LOG_CAP :]
-            if not text or len(local_text) > len(text):
+            if len(local_text) > len(text):
                 text = local_text
                 source = source or "control"
-        return {"job_id": job_id, "text": text, "source": source or "none", "ts": blob.get("ts"), "bytes": blob.get("end")}
+                end = max(int(end or 0), len(local_text.encode("utf-8", errors="replace")))
+        return {"job_id": job_id, "text": text, "source": source or "none", "ts": blob.get("ts"), "bytes": end}
 
     def list_templates(self) -> list[dict[str, Any]]:
         jobs_dir = self.config.source.parent / "jobs" if self.config.source else None

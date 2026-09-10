@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from troiani_platform.infra.notation import gpu_ref
 from troiani_platform.models import GPUResource, Occupancy
 
 
@@ -84,12 +85,13 @@ class InfraMetrics:
         for gpu in gpus:
             key = f"{gpu.node}:{gpu.index}"
             sample[key] = {
-                "sm": gpu.sm_util,
+                "sm": float(gpu.sm_util),
                 "vram": round(gpu.vram_pct, 1),
                 "mem_ctrl": gpu.memory_util,
-                "util": gpu.sm_util,
+                "util": float(gpu.sm_util),
                 "mem": gpu.memory_used_gb,
                 "occupancy": gpu.occupancy.value,
+                "ref": gpu_ref(gpu.node, gpu.index, gpu.uuid),
             }
         self.util_history.append(sample)
         self.util_history = self.util_history[-180:]

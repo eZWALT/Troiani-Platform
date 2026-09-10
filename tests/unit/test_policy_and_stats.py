@@ -105,3 +105,12 @@ def test_dashboard_assets(service):
     js = client.get("/static/app.js")
     assert css.status_code == 200
     assert js.status_code == 200
+    assert "2 nodes · A100" in page.text
+    assert "chart-empty" in page.text
+    assert "height: 320px" in css.text
+    assert "collectChartSeries" in js.text
+    assert 'ctx.fillText("%"' in js.text
+    assert 'ctx.fillText("time"' in js.text
+    assert "→100B" in page.text
+    assert "refreshJobLog" in js.text
+    assert "fmtEta100B" in js.text

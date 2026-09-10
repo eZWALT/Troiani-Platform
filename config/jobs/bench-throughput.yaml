@@ -1,0 +1,26 @@
+name: bench-throughput
+gpus: 1
+min_gpu_memory_gb: 40
+preferred_gpu_type: A100
+priority: opportunistic
+preemptible: true
+checkpoint_interval: 600
+max_runtime: 180
+experiment: throughput-bench
+# Same-node 1 GPU probe. Override --params/--batch/--seq. Seq default is 2048.
+# Do not submit onto a researcher card. Estimator must say FIT first.
+command:
+  - python
+  - -m
+  - troiani_platform.training.throughput
+  - --params
+  - "350M"
+  - --batch
+  - "1"
+  - --seq
+  - "2048"
+  - --steps
+  - "30"
+dataset:
+  name: throughput-probe
+  version: "1"

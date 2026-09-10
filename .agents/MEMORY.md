@@ -1,6 +1,6 @@
 # Troiani-Platform agent memory
 
-Updated: 2026-09-10 19:20 Europe/Madrid
+Updated: 2026-09-10 19:40 Europe/Madrid
 
 ## What this is
 
@@ -39,9 +39,26 @@ Do **not** write into the Troiani LLM repo.
 ## UI
 
 Tabs: Cluster / Jobs / Launch / Policy / Runs / Activity / Infra.
-Subtitle: `Atlas · Uranus · opportunistic`.
+Subtitle: `2 nodes · A100`.
 Policy: emergency STOP ALL / Resume, aggressiveness buttons, rule chips, current vs proposed, On/Off partial stop.
 Cluster GPU cards show SM and VRAM separately.
+
+## Pretraining tokens (1B dense) — do not sloganize
+
+Chinchilla ~20 tok/param is **compute-optimal**, not “good enough”.
+10B undertrained · 20B Chinchilla-compute · 50B solid · 100B quite good · 300B very strong · 1T seriously overtrained / potentially excellent · 3T TinyLlama-extreme · 5–10T diminishing.
+Interesting regime **100B–1T**. For a 1B meant for cheap inference today: target **≈300B–1T high-quality tokens**, not blindly 20B.
+Once in the hundreds of billions, **data quality > token counter**. Prefer 1B × 500B excellent tokens over 1B × 3T garbage.
+Full table: `.agents/SCALING.md`. Throughput / VRAM fit: `.agents/THROUGHPUT.md`.
+
+## Throughput probe (not M16)
+
+- Module: `python -m troiani_platform.training.throughput --params 1B --batch 4 --seq 2048 --steps 30`
+- Estimator first (FIT / NO-FIT on 40 vs 80). Seq default **2048**. Same-node, 1 GPU, not NCCL.
+- Live timed steps only on idle cards. GPU0 Atlas often gkoutr; Uranus GPU2–3 often csp vLLM.
+- Live (2026-09-10): Atlas gpu1 350M×1 = 47.5k tok/s; 1B×1 = 22.7k; 2B×1 = 12.6k. Uranus gpu0 350M×1 = 50.5k; 1B×1 = 23.9k; 2B×1 = 13.2k. 350M×16 OOM on 40GB (39.7 GiB on 80GB). 2B×8/16 NO-FIT 40GB.
+- ETA (1 GPU, probe rate): 1B×1 Atlas 100B ≈ **51 d always-on** / **142 d weeknights** (35.8%). Live windows are all-off = 100% duty. Hypothetical only; windows were not enabled. Full table in THROUGHPUT.md.
+- Do not invent tokens/s. M16 (real 1B pretrain) is still later.
 
 ## Invariants
 
@@ -49,4 +66,4 @@ Cluster GPU cards show SM and VRAM separately.
 - Do not enable overnight/weekend windows live unless the user turns them on
 - Command is argv, never a shell string
 - Tests green before deploy
-- Smoke only on idle GPUs
+- Smoke / bench only on idle GPUs

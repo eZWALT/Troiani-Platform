@@ -46,6 +46,45 @@ def format_duration(seconds: float) -> str:
     return f"{secs}s"
 
 
+TOKENS_100B = 100_000_000_000
+
+
+def format_eta(seconds: float) -> str:
+    total = max(0, int(round(float(seconds))))
+    days, rem = divmod(total, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, secs = divmod(rem, 60)
+    if days >= 365:
+        return f"{total / (365 * 86400):.1f}y"
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes:02d}m"
+    if minutes:
+        return f"{minutes}m {secs:02d}s"
+    return f"{secs}s"
+
+
+def eta_to_100b(ingested: float | None, tokens_per_sec: float | None) -> tuple[float | None, str | None]:
+    """Wall-estimate at the current tok/s. None means no rate; 'reached' if past 100B."""
+    try:
+        rate = float(tokens_per_sec) if tokens_per_sec is not None else 0.0
+    except (TypeError, ValueError):
+        return None, None
+    if rate <= 0:
+        return None, None
+    have = float(ingested or 0.0)
+    if have >= TOKENS_100B:
+        return 0.0, "reached"
+    seconds = (TOKENS_100B - have) / rate
+    return seconds, format_eta(seconds)
+
+
+def _eta_100b_fields(ingested: float | None, tokens_per_sec: float | None) -> dict[str, Any]:
+    seconds, label = eta_to_100b(ingested, tokens_per_sec)
+    return {"eta_100b_s": seconds, "eta_100b": label}
+
+
 def new_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
 
@@ -452,6 +491,7 @@ class Job:
             "last_loss": self.last_loss,
             "tokens_ingested": self.tokens_ingested,
             "tokens_per_sec": self.tokens_per_sec,
+            **_eta_100b_fields(self.tokens_ingested, self.tokens_per_sec),
             "runtime_s": self.runtime_s(),
             "rollback_count": self.rollback_count,
             "message": self.message,
@@ -516,6 +556,7 @@ class Run:
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["runtime_s"] = elapsed_seconds(self.started_at, self.ended_at)
+        data.update(_eta_100b_fields(self.tokens_ingested, self.tokens_per_sec))
         return data
 
     @classmethod

@@ -81,7 +81,14 @@ form.launch input, form.launch textarea, form.launch select {
 .window-row button.on { background: var(--ok); color: #fff; border-color: var(--ok); }
 .days { display: flex; gap: 4px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; }
 .days label { flex-direction: row; align-items: center; gap: 3px; color: var(--ink); }
-#chart { width: 100%; height: 110px; background: var(--paper); border: 1px solid var(--line); }
+.chart-block { background: var(--paper); border: 1px solid var(--line); padding: 12px 12px 8px; }
+#chart { width: 100%; height: 320px; display: block; background: transparent; border: none; }
+.chart-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 12px 0 4px; padding: 0; color: var(--ink); font-size: 12px; }
+.chart-legend li { display: flex; align-items: center; gap: 7px; }
+.chart-legend .gpu { font-family: var(--mono); min-width: 92px; }
+.chart-legend .swatch { display: inline-block; width: 28px; height: 0; border-top: 2.5px solid currentColor; }
+.chart-legend .swatch.dash { border-top-style: dashed; }
+#chart-empty { margin: 8px 0; }
 .toast { color: var(--accent); min-height: 1.2em; font-size: 12px; margin: 8px 0 0; }
 .note { color: var(--muted); font-size: 12px; }
 .log { background: #111; color: #e8e2d6; padding: 12px; min-height: 160px; max-height: 320px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
@@ -90,8 +97,6 @@ form.launch input, form.launch textarea, form.launch select {
 .emergency { display: flex; justify-content: space-between; gap: 16px; align-items: center; background: var(--paper); border: 1px solid var(--line); padding: 12px 14px; margin: 8px 0 14px; }
 .emergency.latched { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--paper)); }
 .emergency strong { display: block; font-size: 14px; }
-#chart-legend { color: var(--muted); font-size: 11px; margin: 0 0 6px; }
-#chart-legend b { font-weight: 500; }
 .log.short { min-height: 120px; max-height: 180px; }
 .clickable { cursor: pointer; }
 .clickable:hover { background: color-mix(in srgb, var(--line) 55%, var(--paper)); }

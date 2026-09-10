@@ -18,7 +18,7 @@ def test_submit_and_status(service):
     assert "Troiani Platform" in page.text
     assert "Who" in page.text
     assert "MLflow" in page.text
-    assert "Atlas · Uranus" in page.text
+    assert "2 nodes · A100" in page.text
     assert "STOP ALL" in page.text
     assert "Infra" in page.text
     assert "SM vs VRAM" in page.text or "Solid SM" in page.text
@@ -104,6 +104,26 @@ def test_incremental_remote_logs_append(service):
     assert log["text"] == "step 1 step 2"
     assert log["source"] == "uranus"
     assert log["bytes"] == 13
+    # replay of an already-acked prefix must not wipe or duplicate
+    client.post(
+        "/v1/internal/heartbeat",
+        json={
+            "worker_id": "uranus-w",
+            "node": "uranus",
+            "gpus": [],
+            "jobs": {},
+            "logs": {job_id: {"offset": 0, "size": 6, "chunk": "step 1"}},
+        },
+    )
+    assert client.get(f"/v1/jobs/{job_id}/log").json()["text"] == "step 1 step 2"
+    client.post(
+        "/v1/internal/job-exit",
+        json={"job_id": job_id, "exit_code": 0, "success": True, "output_tail": "step 1 step 2\ncompleted step=2"},
+    )
+    final = client.get(f"/v1/jobs/{job_id}/log").json()
+    assert "step 1 step 2" in final["text"]
+    assert "completed step=2" in final["text"]
+    assert final["text"].count("step 1") == 1
 
 
 def test_policy_stop_all_and_resume(service):

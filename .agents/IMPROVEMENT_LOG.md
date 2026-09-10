@@ -97,3 +97,24 @@
 - SkyPilot-shaped YAML ingest (`run`/`entrypoint` → argv via shlex). Named checkpoints `{exp}-{kind}-{step}`. Process async writer for regular saves. Infra tab + per-user activity.
 - Visual pass: readable policy summaries, On/Off partial stop, TB disk units. Live STOP ALL tested then resumed. Windows stay disabled.
 - `pytest -q`: 107 passed. Deploy Atlas+Uranus. Push to GitHub.
+
+## 2026-09-10 19:40
+
+- Header lede is factual: `2 nodes · A100`. No slogan.
+- Utilization chart is a real plot: 320px tall, time X-axis from sample `ts`, 0–100% Y-axis with ticks, labels, per-GPU color + SM solid / VRAM dashed legend (`atlas/gpu0`). Empty history is plain text.
+- History samples include `ref` + separate `sm`/`vram`. Control-only restart.
+- `pytest -q`: 109 passed. Push to GitHub.
+
+## 2026-09-10 19:45 throughput bench (not M16)
+
+- Token-budget guidance persisted in `.agents/SCALING.md` + MEMORY (20× is compute-optimal, not good enough; 1B target ≈300B–1T quality tokens).
+- New probe `training/throughput.py` + estimator unit tests. Seq=2048. Same-node 1 GPU. No NCCL. No dashboard/git files touched.
+- Live idle-only: Atlas gpu1 (40GB) and Uranus gpu0 (80GB). Did not touch gkoutr 642620 or csp vLLM 2524772/2524773. Left when csp RepoEvolve appeared on Uranus gpu0.
+- Honest OOM: 350M×16 on 40GB (estimator had said FIT). 2B×8/16 not launched on 40GB. Table: `.agents/THROUGHPUT.md`.
+- Time-to-budget next to tok/s: always-on vs hypothetical weeknights (35.8%) and nights+weekend (59.6%). Live policy stays all-off (100%). 1B×1 Atlas 100B ≈ 51 d / 142 d weeknights. Windows not enabled.
+
+## 2026-09-10 22:40
+
+- Log tail: dummy trainer now prints each step (was silent until DONE). UI refreshes `#job-log` on every poll. Worker keeps shipping after reap; failed heartbeat does not advance offset. job-exit tail fills an empty log.
+- Jobs/Runs show `→100B` next to tokens from current tok/s (wall estimate).
+- Header `2 nodes · A100`. Chart: 320px, time axis, 0–100% ticks, per-GPU SM solid / VRAM dashed legend.

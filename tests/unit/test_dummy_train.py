@@ -5,7 +5,7 @@ import pytest
 from troiani_platform.training import dummy_train
 
 
-def test_dummy_train_posts_checkpoint_after_save(tmp_path, monkeypatch):
+def test_dummy_train_posts_checkpoint_after_save(tmp_path, monkeypatch, capsys):
     posted: list[tuple[str, dict]] = []
 
     def capture(_endpoint: str, path: str, payload: dict) -> None:
@@ -24,6 +24,9 @@ def test_dummy_train_posts_checkpoint_after_save(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc:
         dummy_train.main()
     assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "step=1" in out
+    assert "step=2" in out
 
     ckpt_posts = [payload for path, payload in posted if path == "/v1/internal/checkpoint"]
     assert ckpt_posts

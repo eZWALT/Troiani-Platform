@@ -21,7 +21,7 @@ def render_dashboard(_status: dict[str, Any] | None = None) -> str:
       <div class="mark">Tp</div>
       <div>
         <h1>Troiani Platform</h1>
-        <p class="lede">Atlas · Uranus · opportunistic</p>
+        <p class="lede">2 nodes · A100</p>
       </div>
     </div>
     <div class="meta">
@@ -77,8 +77,11 @@ def render_dashboard(_status: dict[str, Any] | None = None) -> str:
       </aside>
     </div>
     <h2>SM vs VRAM</h2>
-    <p id="chart-legend"><b>Solid SM</b> = compute busy. <b>Dashed VRAM</b> = memory occupied. High VRAM + low SM is a parked model.</p>
-    <canvas id="chart"></canvas>
+    <p class="note" id="chart-empty">No utilization samples yet. SM and VRAM series appear after the first worker heartbeats.</p>
+    <div class="chart-block" id="chart-block" hidden>
+      <canvas id="chart" width="960" height="320"></canvas>
+      <ul class="chart-legend" id="chart-legend"></ul>
+    </div>
   </section>
 
   <section class="tab" data-panel="jobs">
@@ -87,7 +90,7 @@ def render_dashboard(_status: dict[str, Any] | None = None) -> str:
       <button class="danger" onclick="act('release-all', true, 'Release every opportunistic Troiani job? They will checkpoint and leave.')">Release all Troiani</button>
     </div>
     <table>
-      <thead><tr><th>Job</th><th>State</th><th>Pri</th><th>GPUs / node</th><th>Runtime</th><th>Step</th><th>Loss</th><th>Tokens</th><th>Ckpt</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Job</th><th>State</th><th>Pri</th><th>GPUs / node</th><th>Runtime</th><th>Step</th><th>Loss</th><th>Tokens</th><th>→100B</th><th>Ckpt</th><th>Actions</th></tr></thead>
       <tbody id="job-body"></tbody>
     </table>
     <div class="split">
@@ -97,7 +100,7 @@ def render_dashboard(_status: dict[str, Any] | None = None) -> str:
       </div>
       <div>
         <h2>Log tail</h2>
-        <pre class="log" id="job-log">Worker heartbeats stream the last 12k of each job log into the control plane.</pre>
+        <pre class="log" id="job-log">Click a job. The worker ships stdout on each heartbeat; this panel refreshes with the poll.</pre>
       </div>
     </div>
   </section>
@@ -201,7 +204,7 @@ troiani_platform.training.dummy_train
   <section class="tab" data-panel="runs">
     <h2>Runs</h2>
     <table>
-      <thead><tr><th>Run</th><th>Exp</th><th>Status</th><th>Runtime</th><th>Tokens</th><th>val</th><th>tok/s</th><th>Node</th><th>Dataset</th><th>Git</th><th></th></tr></thead>
+      <thead><tr><th>Run</th><th>Exp</th><th>Status</th><th>Runtime</th><th>Tokens</th><th>→100B</th><th>val</th><th>tok/s</th><th>Node</th><th>Dataset</th><th>Git</th><th></th></tr></thead>
       <tbody id="run-body"></tbody>
     </table>
     <pre class="log" id="run-detail">Lineage / reproduce appear here.</pre>
