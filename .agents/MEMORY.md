@@ -1,6 +1,6 @@
 # Troiani-Platform agent memory
 
-Updated: 2026-09-10 19:40 Europe/Madrid
+Updated: 2026-09-10 23:20 Europe/Madrid
 
 ## What this is
 
@@ -12,22 +12,23 @@ Do **not** write into the Troiani LLM repo.
 
 ## Hardware (honest)
 
-- Atlas `192.168.1.17`: 2× A100 40GB. GPU0 often `gkoutr` (RESEARCHER, high VRAM / low SM). GPU1 often idle.
-- Uranus `192.168.1.18`: 4× A100 80GB. GPU2–3 often `csp` vLLM (RESEARCHER, high SM + VRAM). GPU0–1 often idle.
+- Atlas `192.168.1.17`: 2× **A100-PCIE-40GB**. GPU0 often `gkoutr` (RESEARCHER, high VRAM / low SM). GPU1 often idle. `nvidia-smi topo` is `NODE` (PCIe). **No active NVLink** (`nvlink -s`: all links inActive).
+- Uranus `192.168.1.18`: 4× **A100 80GB PCIe**. GPU2–3 often `csp` vLLM. GPU0–1 often idle. Topo: **NV12** within 0–1 and 2–3; **SYS** across NUMA. No NVSwitch. Facts: `.agents/NETWORKING.md`.
 - Never kill, hide, or interfere with researcher processes.
 - "Kill" / Drain / STOP ALL means Troiani work only. Researcher cards stay Blocked.
 
 ## Live services (Atlas)
 
-- Control + dashboard: `0.0.0.0:8787`
-- Tunnel: `ssh -N -L 8787:127.0.0.1:8787 -L 5000:127.0.0.1:5000 -L 6006:127.0.0.1:6006 atlas`
-- http://127.0.0.1:8787 or LAN http://192.168.1.17:8787
+- Control + dashboard: `0.0.0.0:8787`. MLflow `:5000` and TensorBoard `:6006` bind **127.0.0.1** (need the tunnel).
+- **Dashboard pipe (keep this running on the laptop):** `ssh -N -L 8787:127.0.0.1:8787 -L 5000:127.0.0.1:5000 -L 6006:127.0.0.1:6006 atlas` then http://127.0.0.1:8787. LAN: http://192.168.1.17:8787.
+- A hung `ssh uranus '… start worker …'` that later prints `client_loop: send disconnect: Broken pipe` (exit 255) is **not** that tunnel. Start workers with `nohup` + redirect + exit. Never `pgrep -f` a pattern that is also on the ssh command line. How-to: `docs/ACCESS.md`.
 - CLI: `TROIANI_PLATFORM_URL=http://127.0.0.1:8787 troiani-platform …`
 - Deploy: `scripts/deploy.sh` (excludes `.venv` and `var/`)
+- Diagram: `docs/architecture.png` (script `docs/architecture.py`). Storage / smoke bounds: `.agents/STORAGE.md`.
 
 ## Architecture
 
-- Control + SQLite + one worker per node. Package `troiani_platform`.
+- Control + SQLite + one worker per node. Package `troiani_platform`. Checkpoints are **worker-local** (`var/checkpoints`); Atlas stores manifests only. No shared FS / Atlas-as-store.
 - New modules: `infra/` (notation, storage), `jobs/skypilot.py`, `training/async_writer.py`
 - GPU JSON always has `sm` / `sm_util` (compute %) and `vram_*` (framebuffer). `utilization` is SM, never VRAM.
 - GPU refs: `atlas/gpu0`. Checkpoints: `{experiment}-{kind}-{step:06d}` plus `experiments/{exp}/{run_id}` index.

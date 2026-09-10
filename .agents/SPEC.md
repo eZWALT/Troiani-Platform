@@ -67,6 +67,8 @@ ssh -N -L 8787:127.0.0.1:8787 -L 5000:127.0.0.1:5000 -L 6006:127.0.0.1:6006 atla
 TROIANI_PLATFORM_URL=http://127.0.0.1:8787 troiani-platform status
 ```
 
+That tunnel is the laptop dashboard pipe. A hung `ssh uranus '… worker …'` `Broken pipe` is not. See `docs/ACCESS.md`. Interconnect: `.agents/NETWORKING.md`. Storage/smoke bounds: `.agents/STORAGE.md`.
+
 ## Loop contract
 
 A 15-minute `AGENT_LOOP_TICK_platform12h` process plus a visible 12h countdown.

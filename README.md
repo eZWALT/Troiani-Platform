@@ -80,7 +80,13 @@ Control plane on Atlas; one worker per node. Deploy and start with:
 ./scripts/worker.sh uranus    # uranus
 ```
 
-Details in [`docs/setup.md`](docs/setup.md).
+Details in [`docs/setup.md`](docs/setup.md). From the laptop, keep the port-forward up (`docs/ACCESS.md`):
+
+```bash
+ssh -N -L 8787:127.0.0.1:8787 -L 5000:127.0.0.1:5000 -L 6006:127.0.0.1:6006 atlas
+```
+
+Then http://127.0.0.1:8787 (or LAN http://192.168.1.17:8787). That tunnel is not the same thing as a hung `ssh uranus '… worker …'` session.
 
 ## CLI
 
@@ -111,6 +117,8 @@ Default policy and paths live in [`config/platform.yaml`](config/platform.yaml).
 | Doc | What |
 |-----|------|
 | [`docs/setup.md`](docs/setup.md) | Environments, servers, tracking |
+| [`docs/ACCESS.md`](docs/ACCESS.md) | Laptop tunnel vs LAN, worker start (no hung SSH) |
+| [`docs/architecture.md`](docs/architecture.md) | Honest layout + [`architecture.png`](docs/architecture.png) |
 | [`docs/usage.md`](docs/usage.md) | Jobs, checkpoints, preemption |
 | [`docs/policy.md`](docs/policy.md) | Windows, limits, researcher-first rules |
 

@@ -53,6 +53,7 @@ Priority: P0 now, P1 soon, P2 later. Agents: grab a P0/P1, mark it in IMPROVEMEN
 - [x] Live tokens/s on idle Atlas gpu1 (40GB) and Uranus gpu0 (80GB): 350M / 1B / 2B×1; 350M×16 OOM on 40GB (no fake tok/s)
 - [x] Table in `.agents/THROUGHPUT.md`
 - [ ] Leftover cells: Uranus 777M, 1B×16 / 2B×8–16 on 80GB (stopped when csp appeared on Uranus gpu0)
+- [ ] Dummy smoke: batch `/v1/internal/metrics` every 5–10 steps (today every step; sleep+HTTP bound, not GPU). Split smoke vs 1B `checkpoint_every_steps` (20 vs ≥500–2000). 1B batch 4/8 from THROUGHPUT.md. Details: `.agents/STORAGE.md`.
 - M16 multi-day Troiani 1B pretrain is **still later**
 
 ## P1 — ingest / infra
@@ -69,6 +70,8 @@ Priority: P0 now, P1 soon, P2 later. Agents: grab a P0/P1, mark it in IMPROVEMEN
 - [x] Dataset manifest fingerprint in the run pane (API exists)
 - [x] Dark theme toggle
 - [x] Proxy remote worker logs beyond heartbeat tail
+- [ ] Use **on-node NVLink** only when a same-node multi-GPU Troiani job actually NCCL-communicates (Uranus GPU0–1 or GPU2–3 are `NV12`). Not for 2-node. Not “enable NVSwitch” — boards are PCIe; Atlas has no active NVLink. See `.agents/NETWORKING.md`.
+- [ ] Atlas-as-store (pull worker ckpts to Atlas) — only if the user chooses it. Do not silent-NFS `var/checkpoints`. See `.agents/STORAGE.md`.
 
 ## Never
 

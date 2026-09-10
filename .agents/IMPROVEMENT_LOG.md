@@ -118,3 +118,9 @@
 - Log tail: dummy trainer now prints each step (was silent until DONE). UI refreshes `#job-log` on every poll. Worker keeps shipping after reap; failed heartbeat does not advance offset. job-exit tail fills an empty log.
 - Jobs/Runs show `→100B` next to tokens from current tok/s (wall estimate).
 - Header `2 nodes · A100`. Chart: 320px, time axis, 0–100% ticks, per-GPU SM solid / VRAM dashed legend.
+
+## 2026-09-10 23:20 access / interconnect / storage
+
+- Docs: `docs/ACCESS.md` (laptop `ssh -L` vs hung worker `Broken pipe`), `docs/architecture.py` + `architecture.png` + mermaid.
+- Facts: `.agents/NETWORKING.md` (Atlas `NODE` / no NVLink; Uranus `NV12` pairs, no NVSwitch, 10GbE LAN). `.agents/STORAGE.md` (worker-local ckpt, dummy sleep+HTTP vs 1B bench).
+- No runtime restart. Pointers in MEMORY / BACKLOG / README.
