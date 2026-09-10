@@ -1,0 +1,15 @@
+name: platform-smoke-long
+gpus: 1
+min_gpu_memory_gb: 40
+priority: opportunistic
+preemptible: true
+checkpoint_every_steps: 25
+experiment: smoke
+command:
+  - python
+  - -m
+  - troiani_platform.training.dummy_train
+  - --steps
+  - "200"
+  - --sleep
+  - "0.2"

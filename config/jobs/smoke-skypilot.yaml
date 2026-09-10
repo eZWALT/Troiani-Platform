@@ -1,0 +1,11 @@
+name: smoke-skypilot
+experiment: smoke-skypilot
+resources:
+  accelerators: A100:1
+workdir: .
+run: python -m troiani_platform.training.dummy_train --steps 40 --sleep 0.1
+checkpoint_every_steps: 20
+max_runtime: 90
+priority: opportunistic
+preemptible: true
+min_gpu_memory_gb: 40

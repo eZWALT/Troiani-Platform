@@ -1,0 +1,23 @@
+name: platform-smoke-2gpu
+gpus: 2
+min_gpu_memory_gb: 40
+preferred_gpu_type: A100
+preferred_node: uranus
+priority: opportunistic
+preemptible: true
+checkpoint_every_steps: 20
+max_runtime: 180
+experiment: smoke
+command:
+  - python
+  - -m
+  - troiani_platform.training.dummy_train
+  - --steps
+  - "80"
+  - --sleep
+  - "0.1"
+  - --tokens-per-step
+  - "4096"
+dataset:
+  name: smoke-manifest
+  version: "1"

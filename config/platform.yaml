@@ -1,0 +1,89 @@
+control:
+  host: 0.0.0.0
+  port: 8787
+  public_url: http://192.168.1.17:8787
+  token: ""
+  bind_mlflow: true
+  mlflow_port: 5000
+  tensorboard_port: 6006
+
+paths:
+  root: var
+  store: var/platform.db
+  checkpoints: var/checkpoints
+  artifacts: var/artifacts
+  datasets: var/datasets
+  mlflow: var/mlruns
+  mlflow_db: var/mlflow.db
+  tensorboard: var/tensorboard
+  logs: var/logs
+
+policy:
+  timezone: Europe/Madrid
+  # Disabled presets appear in the UI. All-disabled (or empty) = any hour.
+  # Researchers still always win. Enable a row only when you mean it.
+  windows:
+    - name: weeknights
+      start: "20:00"
+      end: "08:00"
+      days: [mon, tue, wed, thu, fri]
+      enabled: false
+    - name: lunch
+      start: "12:00"
+      end: "14:00"
+      days: [mon, tue, wed, thu, fri]
+      enabled: false
+    - name: weekends
+      start: "00:00"
+      end: "23:59"
+      days: [sat, sun]
+      enabled: false
+    - name: weekend-nights
+      start: "20:00"
+      end: "08:00"
+      days: [sat, sun]
+      enabled: false
+    - name: special
+      start: "09:00"
+      end: "11:00"
+      days: []
+      enabled: false
+    - name: festive
+      start: "00:00"
+      end: "23:59"
+      days: []
+      enabled: false
+  stop_all: false
+  aggressiveness: mid
+  max_troiani_gpus: 4
+  max_jobs: 4
+  max_gpus_per_job: 4
+  max_runtime_s: 0
+  preempt_grace_s: 120
+  cooldown_s: 30
+  memory_busy_gb: 2.0
+  worker_heartbeat_s: 10
+  worker_stale_s: 45
+  control_lost_grace_s: 90
+  auto_rollback: false
+  max_rollbacks: 2
+  stall_seconds: 600
+  loss_spike_factor: 8.0
+  throughput_collapse_factor: 0.5
+  underutil_threshold: 5.0
+  retention:
+    last_regular: 5
+    last_milestone: 3
+    best_n: 3
+    keep_latest_preemption: true
+    keep_latest_healthy: true
+
+owned_users:
+  - wtroi
+  - walterjtv
+
+nodes:
+  atlas:
+    public_url: http://192.168.1.17:8787
+  uranus:
+    public_url: http://192.168.1.17:8787

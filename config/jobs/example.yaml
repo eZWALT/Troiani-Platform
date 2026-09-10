@@ -1,0 +1,24 @@
+name: troiani-small-pretrain
+gpus: 1
+min_gpu_memory_gb: 40
+preferred_gpu_type: A100
+priority: opportunistic
+preemptible: true
+checkpoint_interval: 30
+checkpoint_every_steps: 50
+max_runtime: 0
+command:
+  - python
+  - -m
+  - troiani_platform.training.dummy_train
+  - --steps
+  - "200"
+dataset:
+  name: demo-shards
+  version: "1"
+evaluation:
+  every_steps: 100
+  command:
+    - python
+    - -m
+    - troiani_platform.training.dummy_eval
